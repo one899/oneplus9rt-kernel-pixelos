@@ -164,18 +164,48 @@ else:
     print('helpers.c already has cgroup.h')
 "
 
-# 6. bpf.h: add bpf_get_prog_name declaration
+# 6. bpf.h: add bpf_get_prog_name declaration + fix bpf_prog_inc return type
 python3 -c "
 fpath='$OP/include/linux/bpf.h'
 with open(fpath,'r') as f: content=f.read()
+# Fix bpf_prog_inc: void -> struct bpf_prog *
+content=content.replace('void bpf_prog_inc(struct bpf_prog *prog);','struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog);')
+# Fix static inline version too
+content=content.replace('static inline void bpf_prog_inc(struct bpf_prog *prog)','static inline struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)')
 if 'bpf_get_prog_name' not in content:
     idx=content.rfind('#endif')
     shim='\nvoid bpf_get_prog_name(const struct bpf_prog *prog, char *name);\n\n'
     content=content[:idx]+shim+content[idx:]
-    with open(fpath,'w') as f: f.write(content)
-    print('bpf_get_prog_name patched')
+with open(fpath,'w') as f: f.write(content)
+print('bpf.h patched: bpf_prog_inc return type + bpf_get_prog_name')
+"
+
+# 7. core.c: fix bpf_prog_inc to return struct bpf_prog * instead of void
+python3 -c "
+fpath='$OP/kernel/bpf/core.c'
+with open(fpath,'r') as f: content=f.read()
+# Change 'void bpf_prog_inc(' to 'struct bpf_prog *bpf_prog_inc('
+content=content.replace('void bpf_prog_inc(struct bpf_prog *prog','struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog')
+# At end of function, add 'return prog;' before closing brace
+# Find the function and fix it
+import re
+# Match the function body pattern
+old_pattern = 'void bpf_prog_inc(struct bpf_prog *prog)\n{\n\tatomic_inc(&prog->aux->refcnt);'
+new_pattern = 'struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)\n{\n\tatomic_inc(&prog->aux->refcnt);\n\treturn prog;'
+if old_pattern in content:
+    content=content.replace(old_pattern, new_pattern)
+    print('core.c bpf_prog_inc patched')
 else:
-    print('bpf_get_prog_name already present')
+    print('core.c pattern not found, trying alternate')
+    # Try alternate pattern
+    old2 = 'void bpf_prog_inc(struct bpf_prog *prog)\n{\n\tatomic_inc(&prog->aux->refcnt);'
+    new2 = 'struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)\n{\n\tatomic_inc(&prog->aux->refcnt);\n\treturn prog;'
+    if old2 in content:
+        content=content.replace(old2, new2)
+        print('core.c patched with alternate pattern')
+    else:
+        print('core.c: no matching pattern found')
+with open(fpath,'w') as f: f.write(content)
 "
 
 echo "=== Done ==="
