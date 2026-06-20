@@ -154,6 +154,22 @@ jobs:
               print('ns_match already present')
           "
 
+          # get_callchain_entry / put_callchain_entry: add to perf_event.h
+          python3 -c "
+          fpath = '${OP}/include/linux/perf_event.h'
+          with open(fpath, 'r') as f:
+              content = f.read()
+          if 'get_callchain_entry' not in content:
+              shim = '\nextern struct perf_callchain_entry *get_callchain_entry(int *rctx);\nextern void put_callchain_entry(int rctx);\n'
+              idx = content.rfind('#endif')
+              content = content[:idx] + shim + content[idx:]
+              with open(fpath, 'w') as f:
+                  f.write(content)
+              print('get_callchain_entry patched')
+          else:
+              print('get_callchain_entry already present')
+          "
+
       - name: Get Packing Tools
         run: |
           cd $GITHUB_WORKSPACE/kernel/msm-5.4
