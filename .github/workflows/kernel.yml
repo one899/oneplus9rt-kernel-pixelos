@@ -135,16 +135,18 @@ jobs:
               print('cgroup_id already present')
           "
 
-          # ns_match: add declaration
+          # ns_match: add at top of proc_ns.h after includes
           python3 -c "
           fpath = '${OP}/include/linux/proc_ns.h'
           with open(fpath, 'r') as f:
               content = f.read()
           if 'ns_match' not in content:
-              shim = 'extern bool ns_match(const struct ns_common *ns, dev_t dev, ino_t ino);\n'
-              # Insert before first extern function
-              idx = content.find('extern int proc_ns_common')
-              content = content[:idx] + shim + content[idx:]
+              shim = '\nextern bool ns_match(const struct ns_common *ns, dev_t dev, ino_t ino);\n'
+              idx = content.find('struct pid_namespace')
+              if idx > 0:
+                  content = content[:idx] + shim + content[idx:]
+              else:
+                  content = shim + content
               with open(fpath, 'w') as f:
                   f.write(content)
               print('ns_match patched')
