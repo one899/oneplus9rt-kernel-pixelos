@@ -96,10 +96,8 @@ jobs:
           cp $OPP/kernel/trace/bpf_trace.c $OP/kernel/trace/bpf_trace.c 2>/dev/null || true
           cp $OPP/kernel/trace/bpf_trace.h $OP/kernel/trace/bpf_trace.h 2>/dev/null || true
 
-          # SM8250-style header patches
+          # SM8250-style header patches (only what bpf_compat54.h doesn't cover)
           bash scripts/patch_headers.sh "$OP" "$OPP"
-
-          # FUSE_BPF to defconfig
           echo "" >> $OP/arch/arm64/configs/${{ matrix.defconfig }}
           echo "CONFIG_FUSE_BPF=y" >> $OP/arch/arm64/configs/${{ matrix.defconfig }}
 
