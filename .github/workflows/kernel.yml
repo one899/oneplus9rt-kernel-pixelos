@@ -105,6 +105,7 @@ jobs:
           cp oppo_src/include/linux/bpf_struct_ops_types.h kernel/msm-5.4/include/linux/bpf_struct_ops_types.h 2>/dev/null || true
           cp oppo_src/include/linux/bpf-cgroup.h kernel/msm-5.4/include/linux/bpf-cgroup.h
           cp oppo_src/include/linux/bpf_verifier.h kernel/msm-5.4/include/linux/bpf_verifier.h
+          cp oppo_src/include/linux/bpf_local_storage.h kernel/msm-5.4/include/linux/bpf_local_storage.h 2>/dev/null || true
 
           # 5. Copy only net/netns/bpf.h (NOT net_namespace.h - it breaks netdevice.h)
           mkdir -p kernel/msm-5.4/include/net/netns
