@@ -121,7 +121,7 @@ jobs:
           export PATH=$GITHUB_WORKSPACE/clang-custom/bin:$PATH
 
           make CC="ccache clang" O=out ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- BRAND_SHOW_FLAG=oneplus ${{ matrix.command }} CROSS_COMPILE=$GITHUB_WORKSPACE/gcc-64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/gcc-32/bin/arm-linux-androideabi- ${{ matrix.defconfig }}
-          make -j4 CC="ccache clang" CLANG_TRIPLE=aarch64-linux-gnu- BRAND_SHOW_FLAG=oneplus ${{ matrix.command }} STRIP=llvm-strip CROSS_COMPILE=$GITHUB_WORKSPACE/gcc-64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/gcc-32/bin/arm-linux-androideabi- O=out ARCH=arm64 2>&1|tee error.log
+          make -j2 CC="ccache clang" CLANG_TRIPLE=aarch64-linux-gnu- BRAND_SHOW_FLAG=oneplus ${{ matrix.command }} STRIP=llvm-strip CROSS_COMPILE=$GITHUB_WORKSPACE/gcc-64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/gcc-32/bin/arm-linux-androideabi- O=out ARCH=arm64
 
           cat $GITHUB_WORKSPACE/kernel/msm-5.4/out/arch/arm64/boot/dts/vendor/oplus/${{ matrix.device_codename }}/*.dtb > $GITHUB_WORKSPACE/kernel/msm-5.4/out/arch/arm64/boot/dts/vendor/oplus/${{ matrix.device_codename }}/dtb
 
