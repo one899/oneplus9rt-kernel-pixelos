@@ -138,8 +138,14 @@ echo "[OK] cgroup.c patched"
 
 # 5. helpers.c: add #include <linux/cgroup.h> for cgroup_id
 if ! grep -q 'include.*linux/cgroup.h' "$OP/kernel/bpf/helpers.c"; then
-    sed -i '1i #include <linux/cgroup.h>' "$OP/kernel/bpf/helpers.c"
-    echo "[OK] helpers.c patched with cgroup.h include"
+    python3 -c "
+fpath='$OP/kernel/bpf/helpers.c'
+with open(fpath,'r') as f: lines=f.readlines()
+newlines=['#include <linux/cgroup.h>\n']+lines
+with open(fpath,'w') as f: f.writelines(newlines)
+print('helpers.c patched')
+"
+    echo "[OK] helpers.c patched"
 else
     echo "[OK] helpers.c already has cgroup.h"
 fi
