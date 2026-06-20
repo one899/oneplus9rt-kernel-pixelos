@@ -129,7 +129,7 @@ jobs:
           mkdir -p tmp
           cp -fp out/arch/arm64/boot/Image tmp
           cp -fp out/arch/arm64/boot/dts/vendor/oplus/${{ matrix.device_codename }}/dtb tmp
-          cp -fp out/arch/arm64/boot/dts/vendor/oplus/${{ matrix.device_codename }}/dtbo.img tmp
+          cp -fp out/arch/arm64/boot/dts/vendor/oplus/${{ matrix.device_codename }}/dtbo.img tmp || true
           cp -rp ./Anykernel3/* tmp
           cd tmp && 7za a -mx9 tmp.zip * && cd ..
           cp -fp tmp/tmp.zip ${{ matrix.device }}-${{ matrix.author }}-${{ matrix.name }}-$TIME-DTB.zip
