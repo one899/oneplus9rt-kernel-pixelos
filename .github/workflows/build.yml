@@ -91,6 +91,10 @@ jobs:
           ln -s ../../vendor/oplus/kernel/oplus_performance/sched_assist \
                 kernel/msm-5.4/kernel/sched_assist
 
+          # Copy fg_uid (needed by healthinfo driver)
+          cp -r vendor/oplus/kernel/oplus_performance/healthinfo/fs/fg_uid \
+                kernel/msm-5.4/fs/fg_uid
+
           # Clean up OnePlus source (we only needed defconfig + sched_assist)
           rm -rf oneplus_src
 
