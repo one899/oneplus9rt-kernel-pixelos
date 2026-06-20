@@ -8,7 +8,23 @@ OPP=$2
 
 echo "=== Patching 9RT headers ==="
 
-# 1. proc_ns.h: add ns_match
+# 1. cgroup.h: add cgroup_id (OPPO/SM8250 has it, 9RT doesn't)
+if ! grep -q "cgroup_id" "$OP/include/linux/cgroup.h"; then
+    python3 -c "
+fpath='$OP/include/linux/cgroup.h'
+with open(fpath,'r') as f: content=f.read()
+idx=content.rfind('#endif')
+shim='\nstatic inline u64 cgroup_id(struct cgroup *cgrp) { return cgrp->kn->id.id; }\n\n'
+content=content[:idx]+shim+content[idx:]
+with open(fpath,'w') as f: f.write(content)
+print('cgroup_id patched')
+"
+    echo "[OK] cgroup.h patched"
+else
+    echo "[OK] cgroup.h already has cgroup_id"
+fi
+
+# 2. proc_ns.h: add ns_match
 if ! grep -q "ns_match" "$OP/include/linux/proc_ns.h"; then
     # Just append before the final #endif
     python3 -c "
@@ -137,17 +153,15 @@ PYEOF
 echo "[OK] cgroup.c patched"
 
 # 5. helpers.c: add #include <linux/cgroup.h> for cgroup_id
-if ! grep -q 'include.*linux/cgroup.h' "$OP/kernel/bpf/helpers.c"; then
-    python3 -c "
+python3 -c "
 fpath='$OP/kernel/bpf/helpers.c'
 with open(fpath,'r') as f: lines=f.readlines()
-newlines=['#include <linux/cgroup.h>\n']+lines
-with open(fpath,'w') as f: f.writelines(newlines)
-print('helpers.c patched')
+if not any('linux/cgroup.h' in l for l in lines):
+    newlines=['#include <linux/cgroup.h>\n']+lines
+    with open(fpath,'w') as f: f.writelines(newlines)
+    print('helpers.c patched')
+else:
+    print('helpers.c already has cgroup.h')
 "
-    echo "[OK] helpers.c patched"
-else
-    echo "[OK] helpers.c already has cgroup.h"
-fi
 
 echo "=== Done ==="
