@@ -136,4 +136,12 @@ with open(fpath, 'w') as f:
 PYEOF
 echo "[OK] cgroup.c patched"
 
+# 5. helpers.c: add #include <linux/cgroup.h> for cgroup_id
+if ! grep -q 'include.*linux/cgroup.h' "$OP/kernel/bpf/helpers.c"; then
+    sed -i '1i #include <linux/cgroup.h>' "$OP/kernel/bpf/helpers.c"
+    echo "[OK] helpers.c patched with cgroup.h include"
+else
+    echo "[OK] helpers.c already has cgroup.h"
+fi
+
 echo "=== Done ==="
