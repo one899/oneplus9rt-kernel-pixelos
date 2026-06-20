@@ -91,6 +91,7 @@ jobs:
           cp oppo_src/include/linux/btf.h kernel/msm-5.4/include/linux/btf.h
           cp oppo_src/include/linux/filter.h kernel/msm-5.4/include/linux/filter.h
           cp oppo_src/include/linux/bpf_types.h kernel/msm-5.4/include/linux/bpf_types.h
+          cp oppo_src/include/uapi/linux/btf.h kernel/msm-5.4/include/uapi/linux/btf.h
 
           # 3. Copy bpf_compat54.h (the key compatibility shim)
           cp oppo_src/include/linux/bpf_compat54.h kernel/msm-5.4/include/linux/bpf_compat54.h
