@@ -98,8 +98,9 @@ jobs:
 
           # SM8250-style header patches (only what bpf_compat54.h doesn't cover)
           bash scripts/patch_headers.sh "$OP" "$OPP"
-          echo "" >> $OP/arch/arm64/configs/${{ matrix.defconfig }}
-          echo "CONFIG_FUSE_BPF=y" >> $OP/arch/arm64/configs/${{ matrix.defconfig }}
+          # FUSE_BPF disabled for now
+          # echo "" >> $OP/arch/arm64/configs/${{ matrix.defconfig }}
+          # echo "CONFIG_FUSE_BPF=y" >> $OP/arch/arm64/configs/${{ matrix.defconfig }}
 
           # Clean up
           rm -rf oppo_src

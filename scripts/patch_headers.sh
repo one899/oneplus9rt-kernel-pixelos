@@ -164,4 +164,18 @@ else:
     print('helpers.c already has cgroup.h')
 "
 
+# 6. bpf.h: add bpf_get_prog_name declaration
+python3 -c "
+fpath='$OP/include/linux/bpf.h'
+with open(fpath,'r') as f: content=f.read()
+if 'bpf_get_prog_name' not in content:
+    idx=content.rfind('#endif')
+    shim='\nvoid bpf_get_prog_name(const struct bpf_prog *prog, char *name);\n\n'
+    content=content[:idx]+shim+content[idx:]
+    with open(fpath,'w') as f: f.write(content)
+    print('bpf_get_prog_name patched')
+else:
+    print('bpf_get_prog_name already present')
+"
+
 echo "=== Done ==="
