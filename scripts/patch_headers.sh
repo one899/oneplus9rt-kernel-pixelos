@@ -8,15 +8,7 @@ OPP=$2
 
 echo "=== Patching 9RT headers ==="
 
-# 1. cgroup.h: add cgroup_id (OPPO has it, 9RT doesn't)
-if ! grep -q "cgroup_id" "$OP/include/linux/cgroup.h"; then
-    echo 'static inline u64 cgroup_id(struct cgroup *cgrp) { return cgrp->kn->id.id; }' >> "$OP/include/linux/cgroup.h"
-    echo "[OK] cgroup.h patched"
-else
-    echo "[OK] cgroup.h already patched"
-fi
-
-# 2. proc_ns.h: add ns_match (insert before #endif at end)
+# 1. proc_ns.h: add ns_match
 if ! grep -q "ns_match" "$OP/include/linux/proc_ns.h"; then
     # Just append before the final #endif
     python3 -c "

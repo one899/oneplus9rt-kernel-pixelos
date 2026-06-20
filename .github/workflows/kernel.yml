@@ -81,7 +81,7 @@ jobs:
           cp -r $OPP/kernel/bpf $OP/kernel/bpf
 
           # Replace BPF-specific headers
-          for h in include/linux/bpf.h include/uapi/linux/bpf.h include/linux/btf.h include/uapi/linux/btf.h include/linux/filter.h include/linux/bpf_types.h include/linux/tnum.h include/linux/bpf-cgroup.h include/linux/bpf_verifier.h; do
+          for h in include/linux/bpf.h include/uapi/linux/bpf.h include/linux/btf.h include/uapi/linux/btf.h include/linux/filter.h include/linux/bpf_types.h include/linux/tnum.h include/linux/bpf_verifier.h; do
             cp "$OPP/$h" "$OP/$h"
           done
 
