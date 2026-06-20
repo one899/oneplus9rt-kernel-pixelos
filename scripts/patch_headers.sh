@@ -63,6 +63,17 @@ else
     echo "[OK] perf_event.h already patched"
 fi
 
+# 3b. callchain.c: remove static from get_callchain_entry/put_callchain_entry
+python3 -c "
+import re
+fpath='$OP/kernel/events/callchain.c'
+with open(fpath,'r') as f: content=f.read()
+content=re.sub(r'static\s+(struct\s+perf_callchain_entry\s+\*)\s*get_callchain_entry', r'\1get_callchain_entry', content)
+content=re.sub(r'static\s+(void)\s*\n?\s*put_callchain_entry', r'\1\nput_callchain_entry', content)
+with open(fpath,'w') as f: f.write(content)
+print('callchain.c static removed')
+"
+
 # 3. bpf-cgroup.h: add cgroup_bpf_link_attach declaration
 if ! grep -q "cgroup_bpf_link_attach" "$OP/include/linux/bpf-cgroup.h"; then
     python3 -c "
