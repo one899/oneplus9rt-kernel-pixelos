@@ -62,64 +62,59 @@ jobs:
           key: build-kernel
           max-size: 2G
 
-      - name: Get Kernel + Modules + OPPO BPF merge
+      - name: Get sources
         run: |
           cd $GITHUB_WORKSPACE
-
-          # Clone 9RT kernel (base)
           git clone -b "${{ matrix.branch }}" "${{ matrix.repo }}" kernel/msm-5.4 --depth 1
-
-          # Clone OnePlus modules
           git clone -b "${{ matrix.modules_branch }}" "${{ matrix.modules_repo }}" modules --depth 1
-          mv modules/vendor ./
-          rm -rf modules
-
-          # Clone OPPO kernel (for BPF files)
+          mv modules/vendor ./ && rm -rf modules
           git clone -b "${{ matrix.oppo_branch }}" "${{ matrix.oppo_repo }}" oppo_src --depth 1
 
+      - name: Merge OPPO BPF into 9RT
+        run: |
           cd $GITHUB_WORKSPACE
+          OP=kernel/msm-5.4
+          OPP=oppo_src
 
-          # === Merge OPPO BPF into 9RT kernel ===
+          # === kernel/bpf/ 完整替换 ===
+          rm -rf $OP/kernel/bpf
+          cp -r $OPP/kernel/bpf $OP/kernel/bpf
 
-          # 1. Replace kernel/bpf/ (14 new files + existing files updated)
-          rm -rf kernel/msm-5.4/kernel/bpf
-          cp -r oppo_src/kernel/bpf kernel/msm-5.4/kernel/bpf
+          # === BPF 核心头文件替换 ===
+          cp $OPP/include/linux/bpf.h $OP/include/linux/bpf.h
+          cp $OPP/include/uapi/linux/bpf.h $OP/include/uapi/linux/bpf.h
+          cp $OPP/include/linux/btf.h $OP/include/linux/btf.h
+          cp $OPP/include/uapi/linux/btf.h $OP/include/uapi/linux/btf.h
+          cp $OPP/include/linux/filter.h $OP/include/linux/filter.h
+          cp $OPP/include/linux/bpf_types.h $OP/include/linux/bpf_types.h
+          cp $OPP/include/linux/tnum.h $OP/include/linux/tnum.h
 
-          # 2. Replace BPF headers
-          cp oppo_src/include/linux/bpf.h kernel/msm-5.4/include/linux/bpf.h
-          cp oppo_src/include/uapi/linux/bpf.h kernel/msm-5.4/include/uapi/linux/bpf.h
-          cp oppo_src/include/linux/btf.h kernel/msm-5.4/include/linux/btf.h
-          cp oppo_src/include/linux/filter.h kernel/msm-5.4/include/linux/filter.h
-          cp oppo_src/include/linux/bpf_types.h kernel/msm-5.4/include/linux/bpf_types.h
-          cp oppo_src/include/uapi/linux/btf.h kernel/msm-5.4/include/uapi/linux/btf.h
+          # === BPF 辅助头文件替换 ===
+          cp $OPP/include/linux/bpf-cgroup.h $OP/include/linux/bpf-cgroup.h
+          cp $OPP/include/linux/bpf_verifier.h $OP/include/linux/bpf_verifier.h
 
-          # 3. Copy bpf_compat54.h (the key compatibility shim)
-          cp oppo_src/include/linux/bpf_compat54.h kernel/msm-5.4/include/linux/bpf_compat54.h
+          # === 新增头文件 ===
+          cp $OPP/include/linux/bpf_compat54.h $OP/include/linux/bpf_compat54.h
+          cp $OPP/include/linux/bpf_lsm.h $OP/include/linux/bpf_lsm.h 2>/dev/null || true
+          cp $OPP/include/linux/bpf-netns.h $OP/include/linux/bpf-netns.h 2>/dev/null || true
+          cp $OPP/include/linux/btf_ids.h $OP/include/linux/btf_ids.h 2>/dev/null || true
+          cp $OPP/include/linux/sockptr.h $OP/include/linux/sockptr.h 2>/dev/null || true
+          cp $OPP/include/linux/rcupdate_trace.h $OP/include/linux/rcupdate_trace.h 2>/dev/null || true
+          cp $OPP/include/linux/bpf_local_storage.h $OP/include/linux/bpf_local_storage.h 2>/dev/null || true
 
-          # 4. Copy other new headers
-          cp oppo_src/include/linux/btf_ids.h kernel/msm-5.4/include/linux/btf_ids.h 2>/dev/null || true
-          cp oppo_src/include/linux/sockptr.h kernel/msm-5.4/include/linux/sockptr.h 2>/dev/null || true
-          cp oppo_src/include/linux/rcupdate_trace.h kernel/msm-5.4/include/linux/rcupdate_trace.h 2>/dev/null || true
-          cp oppo_src/include/linux/bpf-netns.h kernel/msm-5.4/include/linux/bpf-netns.h 2>/dev/null || true
-          cp oppo_src/include/linux/bpf_lsm.h kernel/msm-5.4/include/linux/bpf_lsm.h 2>/dev/null || true
-          cp oppo_src/include/linux/bpf_struct_ops_types.h kernel/msm-5.4/include/linux/bpf_struct_ops_types.h 2>/dev/null || true
-          cp oppo_src/include/linux/bpf-cgroup.h kernel/msm-5.4/include/linux/bpf-cgroup.h
-          cp oppo_src/include/linux/bpf_verifier.h kernel/msm-5.4/include/linux/bpf_verifier.h
-          cp oppo_src/include/linux/bpf_local_storage.h kernel/msm-5.4/include/linux/bpf_local_storage.h 2>/dev/null || true
+          # === net namespace ===
+          mkdir -p $OP/include/net/netns
+          cp $OPP/include/net/netns/bpf.h $OP/include/net/netns/bpf.h 2>/dev/null || true
 
-          # 5. Copy only net/netns/bpf.h (NOT net_namespace.h - it breaks netdevice.h)
-          mkdir -p kernel/msm-5.4/include/net/netns
-          cp oppo_src/include/net/netns/bpf.h kernel/msm-5.4/include/net/netns/bpf.h 2>/dev/null || true
+          # === kernel/trace ===
+          cp $OPP/kernel/trace/bpf_trace.c $OP/kernel/trace/bpf_trace.c 2>/dev/null || true
+          cp $OPP/kernel/trace/bpf_trace.h $OP/kernel/trace/bpf_trace.h 2>/dev/null || true
 
-          # 6. Copy kernel/trace
-          cp oppo_src/kernel/trace/bpf_trace.c kernel/msm-5.4/kernel/trace/bpf_trace.c 2>/dev/null || true
-          cp oppo_src/kernel/trace/bpf_trace.h kernel/msm-5.4/kernel/trace/bpf_trace.h 2>/dev/null || true
+          # === FUSE_BPF ===
+          echo "" >> $OP/arch/arm64/configs/${{ matrix.defconfig }}
+          echo "CONFIG_FUSE_BPF=y" >> $OP/arch/arm64/configs/${{ matrix.defconfig }}
 
-          # 7. Add FUSE_BPF to defconfig
-          echo "" >> kernel/msm-5.4/arch/arm64/configs/${{ matrix.defconfig }}
-          echo "CONFIG_FUSE_BPF=y" >> kernel/msm-5.4/arch/arm64/configs/${{ matrix.defconfig }}
-
-          # Clean up
+          # === Clean up ===
           rm -rf oppo_src
 
       - name: Get Packing Tools
