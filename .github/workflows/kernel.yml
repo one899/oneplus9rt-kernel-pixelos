@@ -117,6 +117,15 @@ jobs:
           # === Clean up ===
           rm -rf oppo_src
 
+          # === Patch 9RT headers with missing functions from OPPO ===
+          # cgroup_id: static inline in cgroup.h
+          sed -i '/^static inline u64 css_id/i\static inline u64 cgroup_id(struct cgroup *cgrp)\n{\n\treturn cgrp->kn->id.id;\n}\n' \
+              $OP/include/linux/cgroup.h 2>/dev/null || true
+
+          # ns_match: extern bool in proc_ns.h
+          sed -i '/^extern bool proc_ns_common/i\extern bool ns_match(const struct ns_common *ns, dev_t dev, ino_t ino);\n' \
+              $OP/include/linux/proc_ns.h 2>/dev/null || true
+
       - name: Get Packing Tools
         run: |
           cd $GITHUB_WORKSPACE/kernel/msm-5.4
