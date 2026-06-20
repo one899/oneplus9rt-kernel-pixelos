@@ -64,4 +64,76 @@ else
     echo "[OK] bpf-cgroup.h already patched"
 fi
 
+# 4. cgroup.c: update cgroup_bpf_attach/detach to match new bpf-cgroup.h signatures
+echo "[4/7] Patching kernel/cgroup/cgroup.c..."
+python3 << PYEOF
+fpath="$OP/kernel/cgroup/cgroup.c"
+with open(fpath, 'r') as f:
+    content = f.read()
+
+# Fix cgroup_bpf_attach: 4 args -> 6 args
+old_attach = """int cgroup_bpf_attach(struct cgroup *cgrp, struct bpf_prog *prog,
+\t\t      enum bpf_attach_type type, u32 flags)
+{
+\tint ret;
+
+\tmutex_lock(&cgroup_mutex);
+\tret = __cgroup_bpf_attach(cgrp, prog, type, flags);
+\tmutex_unlock(&cgroup_mutex);
+\treturn ret;
+}"""
+
+new_attach = """int cgroup_bpf_attach(struct cgroup *cgrp,
+\t\t      struct bpf_prog *prog, struct bpf_prog *replace_prog,
+\t\t      struct bpf_cgroup_link *link,
+\t\t      enum bpf_attach_type type, u32 flags)
+{
+\tint ret;
+
+\tmutex_lock(&cgroup_mutex);
+\tret = __cgroup_bpf_attach(cgrp, prog, replace_prog, link, type, flags);
+\tmutex_unlock(&cgroup_mutex);
+\treturn ret;
+}"""
+
+if old_attach in content:
+    content = content.replace(old_attach, new_attach)
+    print("  cgroup_bpf_attach patched")
+else:
+    print("  cgroup_bpf_attach pattern not found")
+
+# Fix cgroup_bpf_detach: 4 args -> 3 args
+old_detach = """int cgroup_bpf_detach(struct cgroup *cgrp, struct bpf_prog *prog,
+\t\t      enum bpf_attach_type type, u32 flags)
+{
+\tint ret;
+
+\tmutex_lock(&cgroup_mutex);
+\tret = __cgroup_bpf_detach(cgrp, prog, type);
+\tmutex_unlock(&cgroup_mutex);
+\treturn ret;
+}"""
+
+new_detach = """int cgroup_bpf_detach(struct cgroup *cgrp, struct bpf_prog *prog,
+\t\t      enum bpf_attach_type type)
+{
+\tint ret;
+
+\tmutex_lock(&cgroup_mutex);
+\tret = __cgroup_bpf_detach(cgrp, prog, NULL, type);
+\tmutex_unlock(&cgroup_mutex);
+\treturn ret;
+}"""
+
+if old_detach in content:
+    content = content.replace(old_detach, new_detach)
+    print("  cgroup_bpf_detach patched")
+else:
+    print("  cgroup_bpf_detach pattern not found")
+
+with open(fpath, 'w') as f:
+    f.write(content)
+PYEOF
+echo "[OK] cgroup.c patched"
+
 echo "=== Done ==="
