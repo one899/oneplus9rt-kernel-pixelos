@@ -47,4 +47,21 @@ else
     echo "[OK] perf_event.h already patched"
 fi
 
+# 3. bpf-cgroup.h: add cgroup_bpf_link_attach declaration
+if ! grep -q "cgroup_bpf_link_attach" "$OP/include/linux/bpf-cgroup.h"; then
+    python3 -c "
+fpath='$OP/include/linux/bpf-cgroup.h'
+with open(fpath,'r') as f: content=f.read()
+if 'cgroup_bpf_link_attach' not in content:
+    idx=content.rfind('#endif')
+    shim='int cgroup_bpf_link_attach(const union bpf_attr *attr, struct bpf_prog *prog);\n\n'
+    content=content[:idx]+shim+content[idx:]
+    with open(fpath,'w') as f: f.write(content)
+    print('cgroup_bpf_link_attach patched')
+"
+    echo "[OK] bpf-cgroup.h patched"
+else
+    echo "[OK] bpf-cgroup.h already patched"
+fi
+
 echo "=== Done ==="
