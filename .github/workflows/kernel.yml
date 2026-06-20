@@ -118,13 +118,39 @@ jobs:
           rm -rf oppo_src
 
           # === Patch 9RT headers with missing functions from OPPO ===
-          # cgroup_id: static inline in cgroup.h
-          sed -i '/^static inline u64 css_id/i\static inline u64 cgroup_id(struct cgroup *cgrp)\n{\n\treturn cgrp->kn->id.id;\n}\n' \
-              $OP/include/linux/cgroup.h 2>/dev/null || true
+          # cgroup_id: add after css_id declaration
+          python3 -c "
+          fpath = '${OP}/include/linux/cgroup.h'
+          with open(fpath, 'r') as f:
+              content = f.read()
+          if 'cgroup_id' not in content:
+              shim = '\nstatic inline u64 cgroup_id(struct cgroup *cgrp)\n{\n\treturn cgrp->kn->id.id;\n}\n'
+              # Insert before #endif at end of file
+              idx = content.rfind('#endif')
+              content = content[:idx] + shim + content[idx:]
+              with open(fpath, 'w') as f:
+                  f.write(content)
+              print('cgroup_id patched')
+          else:
+              print('cgroup_id already present')
+          "
 
-          # ns_match: extern bool in proc_ns.h
-          sed -i '/^extern bool proc_ns_common/i\extern bool ns_match(const struct ns_common *ns, dev_t dev, ino_t ino);\n' \
-              $OP/include/linux/proc_ns.h 2>/dev/null || true
+          # ns_match: add declaration
+          python3 -c "
+          fpath = '${OP}/include/linux/proc_ns.h'
+          with open(fpath, 'r') as f:
+              content = f.read()
+          if 'ns_match' not in content:
+              shim = 'extern bool ns_match(const struct ns_common *ns, dev_t dev, ino_t ino);\n'
+              # Insert before first extern function
+              idx = content.find('extern int proc_ns_common')
+              content = content[:idx] + shim + content[idx:]
+              with open(fpath, 'w') as f:
+                  f.write(content)
+              print('ns_match patched')
+          else:
+              print('ns_match already present')
+          "
 
       - name: Get Packing Tools
         run: |
