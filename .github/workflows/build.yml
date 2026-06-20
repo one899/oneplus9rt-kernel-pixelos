@@ -1,4 +1,4 @@
-name: LOS Base + 9rt_defconfig + ux_state fix
+name: LOS + 9rt_defconfig + ux_state
 
 on:
   workflow_dispatch:
