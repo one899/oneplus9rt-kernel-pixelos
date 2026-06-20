@@ -103,9 +103,8 @@ jobs:
           cp oppo_src/include/linux/bpf_lsm.h kernel/msm-5.4/include/linux/bpf_lsm.h 2>/dev/null || true
           cp oppo_src/include/linux/bpf_struct_ops_types.h kernel/msm-5.4/include/linux/bpf_struct_ops_types.h 2>/dev/null || true
 
-          # 5. Copy net namespace headers
+          # 5. Copy only net/netns/bpf.h (NOT net_namespace.h - it breaks netdevice.h)
           mkdir -p kernel/msm-5.4/include/net/netns
-          cp oppo_src/include/net/net_namespace.h kernel/msm-5.4/include/net/net_namespace.h 2>/dev/null || true
           cp oppo_src/include/net/netns/bpf.h kernel/msm-5.4/include/net/netns/bpf.h 2>/dev/null || true
 
           # 6. Copy kernel/trace
