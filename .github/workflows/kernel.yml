@@ -70,17 +70,17 @@ jobs:
           mv modules/vendor ./ && rm -rf modules
           git clone -b "${{ matrix.oppo_branch }}" "${{ matrix.oppo_repo }}" oppo_src --depth 1
 
-      - name: Merge OPPO BPF into 9RT
+      - name: Merge OPPO BPF + SM8250-style patches
         run: |
           cd $GITHUB_WORKSPACE
           OP=kernel/msm-5.4
           OPP=oppo_src
 
-          # === kernel/bpf/ 完整替换 ===
+          # === 1. Replace kernel/bpf/ entirely from OPPO ===
           rm -rf $OP/kernel/bpf
           cp -r $OPP/kernel/bpf $OP/kernel/bpf
 
-          # === BPF 核心头文件替换 ===
+          # === 2. Replace BPF-specific headers from OPPO ===
           cp $OPP/include/linux/bpf.h $OP/include/linux/bpf.h
           cp $OPP/include/uapi/linux/bpf.h $OP/include/uapi/linux/bpf.h
           cp $OPP/include/linux/btf.h $OP/include/linux/btf.h
@@ -88,12 +88,10 @@ jobs:
           cp $OPP/include/linux/filter.h $OP/include/linux/filter.h
           cp $OPP/include/linux/bpf_types.h $OP/include/linux/bpf_types.h
           cp $OPP/include/linux/tnum.h $OP/include/linux/tnum.h
-
-          # === BPF 辅助头文件替换 ===
           cp $OPP/include/linux/bpf-cgroup.h $OP/include/linux/bpf-cgroup.h
           cp $OPP/include/linux/bpf_verifier.h $OP/include/linux/bpf_verifier.h
 
-          # === 新增头文件 ===
+          # === 3. Copy new headers from OPPO ===
           cp $OPP/include/linux/bpf_compat54.h $OP/include/linux/bpf_compat54.h
           cp $OPP/include/linux/bpf_lsm.h $OP/include/linux/bpf_lsm.h 2>/dev/null || true
           cp $OPP/include/linux/bpf-netns.h $OP/include/linux/bpf-netns.h 2>/dev/null || true
@@ -101,74 +99,119 @@ jobs:
           cp $OPP/include/linux/sockptr.h $OP/include/linux/sockptr.h 2>/dev/null || true
           cp $OPP/include/linux/rcupdate_trace.h $OP/include/linux/rcupdate_trace.h 2>/dev/null || true
           cp $OPP/include/linux/bpf_local_storage.h $OP/include/linux/bpf_local_storage.h 2>/dev/null || true
-
-          # === net namespace ===
           mkdir -p $OP/include/net/netns
           cp $OPP/include/net/netns/bpf.h $OP/include/net/netns/bpf.h 2>/dev/null || true
 
-          # === kernel/trace ===
+          # === 4. Replace kernel/trace ===
           cp $OPP/kernel/trace/bpf_trace.c $OP/kernel/trace/bpf_trace.c 2>/dev/null || true
           cp $OPP/kernel/trace/bpf_trace.h $OP/kernel/trace/bpf_trace.h 2>/dev/null || true
 
-          # === FUSE_BPF ===
+          # === 5. SM8250-style header patches (add missing declarations to 9RT headers) ===
+
+          # 5a. capability.h: add bpf_capable + perfmon_capable
+          python3 << 'PYEOF'
+          import sys
+          fpath = sys.argv[1]
+          with open(fpath, "r") as f:
+              content = f.read()
+          if "bpf_capable" not in content:
+              # Find the end of the file (before last #endif)
+              idx = content.rfind("#endif")
+              shim = """
+#ifndef perfmon_capable
+static inline bool perfmon_capable(void)
+{
+    return capable(CAP_SYS_ADMIN);
+}
+#endif
+
+static inline bool bpf_capable(void)
+{
+    return capable(CAP_SYS_ADMIN) || capable(CAP_PERFMON);
+}
+
+"""
+              content = content[:idx] + shim + content[idx:]
+              with open(fpath, "w") as f:
+                  f.write(content)
+              print("capability.h patched")
+          else:
+              print("capability.h already patched")
+          PYEOF "$OP/include/linux/capability.h"
+
+          # 5b. perf_event.h: add get_callchain_entry/put_callchain_entry
+          python3 << 'PYEOF'
+          import sys
+          fpath = sys.argv[1]
+          with open(fpath, "r") as f:
+              content = f.read()
+          if "get_callchain_entry" not in content:
+              idx = content.rfind("#endif")
+              shim = """
+#ifdef CONFIG_PERF_EVENTS
+extern struct perf_callchain_entry *get_callchain_entry(int *rctx);
+extern void put_callchain_entry(int rctx);
+#endif
+
+"""
+              content = content[:idx] + shim + content[idx:]
+              with open(fpath, "w") as f:
+                  f.write(content)
+              print("perf_event.h patched")
+          else:
+              print("perf_event.h already patched")
+          PYEOF "$OP/include/linux/perf_event.h"
+
+          # 5c. proc_ns.h: add ns_match
+          python3 << 'PYEOF'
+          import sys
+          fpath = sys.argv[1]
+          with open(fpath, "r") as f:
+              content = f.read()
+          if "ns_match" not in content:
+              idx = content.find("struct pid_namespace")
+              if idx > 0:
+                  shim = "extern bool ns_match(const struct ns_common *ns, dev_t dev, ino_t ino);\n\n"
+                  content = content[:idx] + shim + content[idx:]
+              with open(fpath, "w") as f:
+                  f.write(content)
+              print("proc_ns.h patched")
+          else:
+              print("proc_ns.h already patched")
+          PYEOF "$OP/include/linux/proc_ns.h"
+
+          # 5d. vmalloc.h: add vmalloc_user_node_flags
+          python3 << 'PYEOF'
+          import sys
+          fpath = sys.argv[1]
+          with open(fpath, "r") as f:
+              content = f.read()
+          if "vmalloc_user_node_flags" not in content:
+              idx = content.rfind("#endif")
+              shim = """
+#ifndef vmalloc_user_node_flags
+#include <linux/gfp.h>
+static inline void *vmalloc_user_node_flags(unsigned long size, int node, gfp_t flags)
+{
+    return __vmalloc_node_flags_caller(size, node, flags | __GFP_ZERO, __builtin_return_address(0));
+}
+#endif
+
+"""
+              content = content[:idx] + shim + content[idx:]
+              with open(fpath, "w") as f:
+                  f.write(content)
+              print("vmalloc.h patched")
+          else:
+              print("vmalloc.h already patched")
+          PYEOF "$OP/include/linux/vmalloc.h"
+
+          # === 6. FUSE_BPF to defconfig ===
           echo "" >> $OP/arch/arm64/configs/${{ matrix.defconfig }}
           echo "CONFIG_FUSE_BPF=y" >> $OP/arch/arm64/configs/${{ matrix.defconfig }}
 
-          # === Clean up ===
+          # Clean up
           rm -rf oppo_src
-
-          # === Patch 9RT headers with missing functions from OPPO ===
-          # cgroup_id: add after css_id declaration
-          python3 -c "
-          fpath = '${OP}/include/linux/cgroup.h'
-          with open(fpath, 'r') as f:
-              content = f.read()
-          if 'cgroup_id' not in content:
-              shim = '\nstatic inline u64 cgroup_id(struct cgroup *cgrp)\n{\n\treturn cgrp->kn->id.id;\n}\n'
-              # Insert before #endif at end of file
-              idx = content.rfind('#endif')
-              content = content[:idx] + shim + content[idx:]
-              with open(fpath, 'w') as f:
-                  f.write(content)
-              print('cgroup_id patched')
-          else:
-              print('cgroup_id already present')
-          "
-
-          # ns_match: add at top of proc_ns.h after includes
-          python3 -c "
-          fpath = '${OP}/include/linux/proc_ns.h'
-          with open(fpath, 'r') as f:
-              content = f.read()
-          if 'ns_match' not in content:
-              shim = '\nextern bool ns_match(const struct ns_common *ns, dev_t dev, ino_t ino);\n'
-              idx = content.find('struct pid_namespace')
-              if idx > 0:
-                  content = content[:idx] + shim + content[idx:]
-              else:
-                  content = shim + content
-              with open(fpath, 'w') as f:
-                  f.write(content)
-              print('ns_match patched')
-          else:
-              print('ns_match already present')
-          "
-
-          # get_callchain_entry / put_callchain_entry: add to perf_event.h
-          python3 -c "
-          fpath = '${OP}/include/linux/perf_event.h'
-          with open(fpath, 'r') as f:
-              content = f.read()
-          if 'get_callchain_entry' not in content:
-              shim = '\nextern struct perf_callchain_entry *get_callchain_entry(int *rctx);\nextern void put_callchain_entry(int rctx);\n'
-              idx = content.rfind('#endif')
-              content = content[:idx] + shim + content[idx:]
-              with open(fpath, 'w') as f:
-                  f.write(content)
-              print('get_callchain_entry patched')
-          else:
-              print('get_callchain_entry already present')
-          "
 
       - name: Get Packing Tools
         run: |
